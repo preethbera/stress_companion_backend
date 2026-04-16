@@ -2,111 +2,132 @@
 
 > A FastAPI-based backend service for the Stress Companion application, providing real-time AI capabilities, sensor integrations, database management, and more.
 
-## 1. Overview and Purpose
+## 1. Project Overview and Backend Purpose
+The Stress Companion Backend serves as the robust foundation for the Stress Companion application. It exposes a modern REST API and WebSocket endpoints built with FastAPI. It handles essential back-end operations such as:
+- **AI Chat & Interviews**: Real-time integration with Google's Gemini API and a fallback local Hugging Face LLM.
+- **Sensor Data Streaming**: Native processing of raw binary frames out of Optical and Thermal cameras to ascertain stress levels via WebSockets.
+- **Session & User Profiling**: Secure registration, session state tracking, demographic storage, and profiling of user's mental traits mapping directly into a robust PostgreSQL database.
 
-The Stress Companion Backend serves as the robust foundation for the Stress Companion application. It exposes a modern REST API built with FastAPI and is responsible for managing:
+## 2. Complete Backend Tech Stack
+The backend is primarily built with the following technologies and libraries:
+- **Framework & Routing**: [FastAPI](https://fastapi.tiangolo.com/) (Web framework), `uvicorn` (ASGI Server).
+- **Core Processing Language**: **Python 3.9+**
+- **Database & ORM**: **PostgreSQL** (optimised for NeonDB), `psycopg2-binary`, managed natively by [SQLAlchemy](https://www.sqlalchemy.org/).
+- **AI/Machine Learning Integration**:
+  - LLMs: `google-genai` (Gemini API for primary chat features), Hugging Face `transformers` + `torch` (for Local fallback Model `Qwen/Qwen2.5-0.5B-Instruct`).
+  - Frame Processing: `opencv-python`, alongside dedicated scikit-learn models.
+- **Concurrency & Events**: `anyio` and native WebSockets (`websockets`) for ultra-low latency streams.
+- **Validation**: Pydantic (`pydantic` & `pydantic-settings`).
+- **Security & Authorization**: bcrypt implementation, `pyjwt`, and `python-jose` for secure JWT tokens.
 
-- **AI Chat & Interviews**: Integration with Google's Gemini API and a local LLM fallback/question generation service.
-- **Sensor Data Processing**: Handling incoming data from optical and thermal sensors (`/api/v1/optical`, `/api/v1/thermal`).
-- **User & Session Management**: Secure authentication, user profiling, and tracking of user sessions (`/api/v1/auth`, `/api/v1/sessions`).
-- **Database Mapping**: Direct PostgreSQL interactions using SQLAlchemy, structured to handle dynamic user metadata.
+## 3. Folder and Module Structure Overview
+The highly modular architecture segregates standard concerns efficiently:
+```
+stress_companion_backend/
+├── app/
+│   ├── core/           # Security, environment configs (Pydantic settings), and global exception handlers
+│   ├── db/             # SQLAlchemy engine creation, PostgreSQL bindings, and Session models
+│   ├── db_models/      # SQLAlchemy ORM definitions natively mapping to PostgreSQL tables
+│   ├── repositories/   # Storage layers handling raw abstracted Object Queries against tables
+│   ├── routes/         # FastAPI Routers exposing HTTP (Auth/Session) and WebSocket APIs
+│   ├── schemas/        # Dedicated Pydantic objects for parsing API Request/Response shapes
+│   ├── scripts/        # Utility helpers such as `download_local_llm.py`
+│   ├── services/       # Core Business Logic encapsulating API flow, DB parsing, and Model ingestion
+│   ├── utils/          # Miscellaneous internal processing rules
+│   ├── main.py         # Main entrypoint containing the Uvicorn FastAPI definition/middleware.
+│   └── init_db.py      # Automated table-spinup schema executor.
+├── storage/            # Disk storage locations for persistent offline records
+├── uploads/            # Temporary directories isolating binary payloads and artifacts
+├── .env.example        # Target schema describing needed ENV configurations
+├── requirements.txt    # Frozen pip dependencies handling packages
+└── migrate_schema.py   # Raw database mutation module (e.g. variable naming updates)
+```
 
-## 2. Environment Setup & Prerequisites
+## 4. Environment Setup Instructions
+To prepare your environment, clone the backend repository, navigate into the directory `stress_companion_backend`, ensure that Git is accessible, and verify `Python 3.9+` is accessible on your system path.
+Ensure an internet connection is established and preserve ~1.5GB of free disk space required to house local machine-learning packages securely.
 
-Before starting, ensure you have the following installed on your machine:
-- **Python 3.9+** (preferably 3.10+ as type hints and modern features are utilized)
-- **Git**
-- A stable internet connection (for local LLM download and package installation)
-- A **Google Gemini API Key** and a **PostgreSQL Database** (e.g., NeonDB) for complete functionality.
-
-## 3. Virtual Environment Creation
-
-We strongly recommend creating a virtual environment to avoid conflicts with system-wide python packages. 
-
+## 5. Virtual Environment Creation and Activation
+Operating safely within a virtual environment prevents internal library conflicts:
 **For Windows:**
 ```bash
 python -m venv venv
-# Activate the virtual environment
 venv\Scripts\activate
 ```
 
-**For macOS/Linux:**
+**For macOS / Linux:**
 ```bash
 python3 -m venv venv
-# Activate the virtual environment
 source venv/bin/activate
 ```
 
-## 4. Dependency Installation
-
-With the virtual environment active, install all required dependencies listed in `requirements.txt`:
-
+## 6. Dependency Installation
+Load all project-required frameworks (FastAPI, Torch, Transformers, Uvicorn, PostgreSQL binaries) by firing PIP against the target definition block:
 ```bash
 pip install -r requirements.txt
 ```
-*Note: This will install FastAPI, SQLAlchemy, Uvicorn, Transformers, PyTorch, Hugging Face Hub, OpenCV, and other essential libraries required for machine learning and web serving.*
 
-## 5. Configuration (.env file)
+## 7. Required `.env` Configuration
+Duplicate `.env.example` as a new raw text file named `.env`, and assign real values to its requirements:
+- **`ENVIRONMENT`**: Determines mode. Usually `development` opens up Swagger endpoints (`/docs`). Set `production` otherwise.
+- **`ALLOWED_ORIGINS`**: Essential for preventing CORS drops. Must strictly be a list (like `http://localhost:5173,https://yourdomain.com`). No trailing slashes.
+- **`GEMINI_API_KEY`**: Native credential required to parse LLM interactions with `google-genai`.
+- **`PROJECT_NAME`**: Exposed globally for title referencing and metadata checks.
+- **`GEMINI_MODEL_NAME`**: Explicit targeted model config (Defaults gracefully to `gemini-2.5-flash`).
+- **`DATABASE_URL`**: Hard PostgreSQL routing connection block beginning `postgresql://`. Works intimately with NeonDB.
+- **`SECRET_KEY`**: Hashing string essential for User ID masking and encryption bindings. 
 
-The project relies on environment variables for configuration. You need to create a `.env` file in the root directory based on the provided `.env.example`.
-
-Create a new file named `.env` and copy the contents of `.env.example` into it. Update the variables accordingly:
-
-### Environment Variables Explanation:
-
-- **`ENVIRONMENT`**: Set to `development` for local testing, or `production` when deployed. Controls things like Swagger UI availability.
-- **`ALLOWED_ORIGINS`**: A comma-separated list of URLs allowed to communicate with this backend (CORS). E.g., `http://localhost:5173`. Avoid trailing slashes.
-- **`GEMINI_API_KEY`**: Your Google Gemini API Key required for the AI chat companion. (Obtain from Google AI Studio).
-- **`PROJECT_NAME`**: Custom string to name the instance in Swagger and Health checks.
-- **`GEMINI_MODEL_NAME`**: (Optional) Specific Gemini model to use, defaults generally to `gemini-2.5-flash`.
-- **`DATABASE_URL`**: Your PostgreSQL connection string. Typically starts with `postgresql://`. The app was built aiming at NeonDB compatibility.
-- **`SECRET_KEY`**: A very secret security key string used for hashing/salting user passwords and session tokens.
-- **`DEPRESSION_MODEL_PATH` / `ANXIETY_MODEL_PATH`**: (Optional) Paths to your saved scikit-learn/XGBoost models.
-- **`SAMPLE_RATE` / `ANXIETY_N_MFCC`**: (Optional) Audio configurations for Emotion Recognition (SER).
-- **`TOTAL_QUESTIONS`**: (Optional) Determines interview length setting.
-- **`SER_LOAD_TIMEOUT`**: (Optional) Timeout threshold limit for loading ML Models.
-
-## 6. Downloading Local LLM
-
-The application uses an offline, local LLM (`Qwen/Qwen2.5-0.5B-Instruct` - roughly 1GB in size) for fallback or offline question generation. 
-
-Before running the server smoothly, you should pre-download the model into your HuggingFace cache:
-
+## 8. Initializing the Local LLM
+The platform can operate completely natively via `Qwen/Qwen2.5-0.5B-Instruct` (~1GB in size).
+To pre-download this asset to your offline cache seamlessly, execute:
 ```bash
 python app/scripts/download_local_llm.py
 ```
-This script checks if the model is locally cached. If not, it uses `huggingface_hub` or `transformers` to securely pull it and run a quick generation verification test.
+This utility determines cache capacities dynamically through `huggingface_hub` limits, fetching configurations natively.
 
-## 7. Database Initialization
-
-Once your `DATABASE_URL` is configured in the `.env` file, initialize your database schema by running:
-
+## 9. Backend Startup and Execution Steps
+**1. Initializing Tables:**
+For first-time environment loads, instantiate SQLAlchemy data points:
 ```bash
 python -m app.init_db
 ```
-This applies SQLAlchemy defined models across your database. 
-*Note: If you are upgrading from an older schema and need to rename the 'curious' column to 'openness', you can run: `python migrate_schema.py`.*
-
-## 8. Execution Steps
-
-With the dependencies installed, database prepared, local LLM cached, and environment variables set, you can launch the backend using Uvicorn.
-
-From the root of the project:
-
+**2. Service Application Server:**
+Direct traffic toward Uvicorn definitions dynamically on Port `8000`:
 ```bash
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
-Alternatively, as a python module:
-```bash
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-- The backend API will be accessible at: `http://localhost:8000`
-- API documentation (Swagger UI) is available at: `http://localhost:8000/docs` (NOTE: Auto-disabled in `production` environment).
-- Health check available at `http://localhost:8000/health`.
+API docs become visible implicitly around `http://localhost:8000/docs`.
 
-## 9. Troubleshooting & Common Issues
+## 10. API Architecture and Endpoint Overview
+Traffic behaves dynamically based on payload types:
+- **`POST /api/v1/auth/*`**: Dedicated JWT-based credential validations.
+- **`GET / POST / PUT /api/v1/sessions/*`**: Isolates chronological history events, user sessions, and metadata objects inside standard REST forms.
+- **`POST /api/v1/chat/gemini`** and **`/api/v1/chat/local`**: Specialized prompt handling targeting AI endpoints safely.
+- **`WS /ws/optical`**: WebSockets specifically extracting visual components streaming 3 FPS binary objects.
+- **`WS /ws/thermal`**: Analogous WebSocket encapsulating inferred temperature bounds inside RGB.
 
-- **Port 8000 already in use:** If the server fails to start, specify a different port: `uvicorn app.main:app --reload --port 8080`
-- **Database Connection Failure:** Ensure that your Neon DB or local PostgreSQL URL is properly formatted. Verify that the IP address running your backend is allowed via your Database provider's Firewall setting.
-- **CORS Issues on Frontend:** Double-check your `ALLOWED_ORIGINS` in `.env`. Ensure there are absolutely NO spaces near the commas and no trailing slashes at the ends of URLs.
-- **PyTorch/Transformers Download Issues:** If the `download_local_llm.py` script fails, check your internet connectivity or whether VPN access restrictions apply to `huggingface.co`. Ensure you have adequate disk space (~1.5GB) available.
+## 11. Request/Response Flow and Service Integration
+A strict architectural flow prevents endpoint bloat leveraging standard OOP logic:
+1. **Controllers (`app/routes/*`)**: APIs enforce authorization bindings, decode raw parameter strings gracefully into strict payload schema (`app.schemas`), and bounce off errors directly.
+2. **Services (`app/services/*`)**: Where internal dependencies resolve. Route actions spawn custom entities (e.g. `local_llm_service`, `gemini_service`, or `FrameProcessingService`) routing interactions fluidly. 
+3. **Repository Layer**: Core db calls decouple direct SQL actions away from Service models, providing purely object-driven CRUD.
+
+## 12. Database/Storage Configuration
+- **Relational Operations**: Everything writes tightly towards PostgreSQL mappings. Configuration binds instantly starting inside `app/db/session.py`.
+- **File System Processing**: WebSocket binaries intercept streams to persist temporary raw `.jpg` imagery inside local `./uploads/` when active `session_id` query strings are established.
+
+## 13. Model/Service Loading Pipeline
+Machine Learning limits initiate intelligently to preserve thread states:
+- `local_llm_service` initializes internal Hugging Face models asynchronously off system Memory utilizing core configurations safely isolated against application reloads.
+- Visual processors instantiate dynamically: `FrameProcessingService` loads `optical_analyzer` or `thermal_analyzer` lazily dependent on routing inputs, allowing multi-frame buffers to cascade inference operations efficiently yielding Pydantic models downstream over Websockets.
+
+## 14. Important Conventions, Assumptions, and Implementation Notes
+- **WebSocket Pipelining Native**: Due to overhead restrictions, older traditional REST implementations managing binaries (`/sessions/frames`) were intentionally abstracted for native byte captures `await websocket.receive_bytes()`.
+- **Global Error Middleware**: System errors propagate dynamically parsing down against specific internal definitions inside `app/core/handlers.py` (i.e. `GeminiServerError`), gracefully outputting formatted strings to Frontend targets.
+- **Modular Data Validation**: Standardized strict parameter assertions route universally via `Pydantic` enforcing error prevention natively.
+
+## 15. Troubleshooting and Common Setup Issues
+- **Hugging Face Networking Conflicts**: Should the Python script `download_local_llm.py` flag internal connection breaks natively traversing out, configure global variables explicitly using VPN routing strategies.
+- **Port 8000 Hangs**: Orphaned active processes limit reboots. Run system `taskkill` (windows), or explicit `kill -9 PID` routines to clear connections locking endpoints gracefully.
+- **Schema Conflicts**: Executing `app.init_db.py` will not naturally patch preexisting migrations. Use the explicit backup `migrate_schema.py` natively if table collisions arise.
+- **Silent CORS Dropping**: Always authenticate `.env` values accurately tracking strings lacking spacing commas and ensuring absolute root definitions `http://localhost:5173` lacking trailing paths.
