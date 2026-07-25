@@ -11,7 +11,7 @@ The Stress Companion Backend serves as the robust foundation for the Stress Comp
 ## 2. Complete Backend Tech Stack
 The backend is primarily built with the following technologies and libraries:
 - **Framework & Routing**: [FastAPI](https://fastapi.tiangolo.com/) (Web framework), `uvicorn` (ASGI Server).
-- **Core Processing Language**: **Python 3.9+**
+- **Core Processing Language**: **Python 3.11** (Required for ONNX runtime)
 - **Database & ORM**: **PostgreSQL** (optimised for NeonDB), `psycopg2-binary`, managed natively by [SQLAlchemy](https://www.sqlalchemy.org/).
 - **AI/Machine Learning Integration**:
   - LLMs: `google-genai` (Gemini API for primary chat features), Hugging Face `transformers` + `torch` (for Local fallback Model `Qwen/Qwen2.5-0.5B-Instruct`).
@@ -39,12 +39,13 @@ stress_companion_backend/
 ├── storage/            # Disk storage locations for persistent offline records
 ├── uploads/            # Temporary directories isolating binary payloads and artifacts
 ├── .env.example        # Target schema describing needed ENV configurations
-├── requirements.txt    # Frozen pip dependencies handling packages
+├── pyproject.toml      # Modern PEP 621 project configuration and dependencies
+├── .python-version     # Strictly locks Python to 3.11 for ONNX compatibility
 └── migrate_schema.py   # Raw database mutation module (e.g. variable naming updates)
 ```
 
 ## 4. Environment Setup Instructions
-To prepare your environment, clone the backend repository, navigate into the directory `stress_companion_backend`, ensure that Git is accessible, and verify `Python 3.9+` is accessible on your system path.
+To prepare your environment, clone the backend repository, navigate into the directory `stress_companion_backend`, ensure that Git is accessible, and verify `Python 3.11` (specifically 3.11 for `onnxruntime` compatibility) is accessible on your system path.
 Ensure an internet connection is established and preserve ~1.5GB of free disk space required to house local machine-learning packages securely.
 
 ## 5. Virtual Environment Creation and Activation
@@ -62,9 +63,9 @@ source venv/bin/activate
 ```
 
 ## 6. Dependency Installation
-Load all project-required frameworks (FastAPI, Torch, Transformers, Uvicorn, PostgreSQL binaries) by firing PIP against the target definition block:
+The project uses a modern `pyproject.toml` file to manage dependencies (including optimized PyTorch CPU wheels for fast cloud deployments). Load all frameworks by firing PIP against the current directory:
 ```bash
-pip install -r requirements.txt
+pip install -e .
 ```
 
 ## 7. Required `.env` Configuration
@@ -127,6 +128,7 @@ Machine Learning limits initiate intelligently to preserve thread states:
 - **Modular Data Validation**: Standardized strict parameter assertions route universally via `Pydantic` enforcing error prevention natively.
 
 ## 15. Troubleshooting and Common Setup Issues
+- **Cloud Deployments (FastAPI Cloud, Render, etc.)**: The `pyproject.toml` is pre-configured to use `opencv-python-headless` (avoiding `libGL.so.1` graphics errors) and strictly downloads the CPU version of PyTorch to prevent massive 2.5GB CUDA downloads. If deploying to a GPU cloud, remove the custom PyTorch index from `pyproject.toml`.
 - **Hugging Face Networking Conflicts**: Should the Python script `download_local_llm.py` flag internal connection breaks natively traversing out, configure global variables explicitly using VPN routing strategies.
 - **Port 8000 Hangs**: Orphaned active processes limit reboots. Run system `taskkill` (windows), or explicit `kill -9 PID` routines to clear connections locking endpoints gracefully.
 - **Schema Conflicts**: Executing `app.init_db.py` will not naturally patch preexisting migrations. Use the explicit backup `migrate_schema.py` natively if table collisions arise.
