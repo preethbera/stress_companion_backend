@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     # --- AI & APP SETTINGS ---
     GEMINI_API_KEY: str = Field(..., description="Gemini API key")
     PROJECT_NAME: str = "FastAPI Backend"
+    ENABLE_LOCAL_LLM: bool = True
     
     # --- DEPLOYMENT & CORS SETTINGS ---
     ENVIRONMENT: str = "development"

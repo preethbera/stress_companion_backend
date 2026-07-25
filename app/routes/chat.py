@@ -3,9 +3,10 @@ from sqlalchemy.orm import Session as DBSession
 
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.gemini_service import gemini_service
-from app.services.local_llm_service import local_llm_service
 from app.services.chat_db_service import save_chat_messages # Change this import if you put the function in storage_service.py
 from app.db.session import get_db
+from app.core.config import settings
+from fastapi import HTTPException, status
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
@@ -38,6 +39,14 @@ async def chat_endpoint(request: ChatRequest, db: DBSession = Depends(get_db)):
 # ---------------------------------------------------------------------------
 @router.post("/local", response_model=ChatResponse)
 async def local_chat_endpoint(request: ChatRequest, db: DBSession = Depends(get_db)):
+    if not getattr(settings, "ENABLE_LOCAL_LLM", True):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Local LLM is disabled on this server."
+        )
+
+    from app.services.local_llm_service import local_llm_service
+
     # 1. Get reply from Local LLM
     reply = await local_llm_service.get_chat_response(
         session_id=request.session_id,

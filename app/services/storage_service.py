@@ -21,11 +21,14 @@ def save_frame_and_prediction(
         session_dir = f"{STORAGE_BASE}/{session_id}/{camera_type}"
         os.makedirs(session_dir, exist_ok=True)
 
-        # Save Image
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        filepath = f"{session_dir}/frame_{timestamp}.jpg"
-        with open(filepath, "wb") as f:
-            f.write(data)
+        # Disable saving images locally due to Render's ephemeral storage
+        # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        # filepath = f"{session_dir}/frame_{timestamp}.jpg"
+        # with open(filepath, "wb") as f:
+        #     f.write(data)
+        
+        # Use a dummy path for the database since image_path is nullable=False
+        filepath = "disabled_on_render"
 
         # Save Metadata
         frame = Frame(

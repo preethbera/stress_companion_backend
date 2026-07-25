@@ -1,6 +1,6 @@
 from app.db.session import engine
 from app.db.base_class import Base
-from app.models.domain import *
+from app.db_models.domain import *
 
 print("Creating tables directly via SQLAlchemy...")
 try:
