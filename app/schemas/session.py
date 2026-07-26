@@ -33,3 +33,23 @@ class MessageResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class SessionHistoryItem(BaseModel):
+    session_id: uuid.UUID
+    created_at: datetime
+    status: str
+    avg_optical_stress: Optional[float] = None
+    avg_thermal_stress: Optional[float] = None
+
+class TimelinePoint(BaseModel):
+    timestamp: int # Date.now() representation or timestamp string
+    score: Optional[float] = None
+    prob: Optional[float] = None
+    status: str
+
+class SessionDetailResponse(BaseModel):
+    session_id: uuid.UUID
+    created_at: datetime
+    optical: list[TimelinePoint]
+    thermal: list[TimelinePoint]
+    messages: list[MessageResponse]

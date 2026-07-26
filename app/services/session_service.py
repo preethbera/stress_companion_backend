@@ -119,3 +119,60 @@ def save_chat_message(db: DBSession, session_id: str, person_id: str, request: M
 def get_chat_history(db: DBSession, session_id: str, person_id: str):
     get_user_session_or_404(db, session_id, person_id)
     return db.query(Message).filter(Message.session_id == session_id).order_by(Message.timestamp.asc()).all()
+
+def get_user_history(db: DBSession, person_id: str):
+    sessions = db.query(SessionModel).filter(
+        SessionModel.person_id == person_id,
+        SessionModel.status == "completed"
+    ).order_by(SessionModel.created_at.desc()).all()
+
+    history = []
+    for s in sessions:
+        predictions = db.query(SessionPrediction).filter(SessionPrediction.session_id == s.session_id).all()
+        avg_optical = next((p.avg_stress_probability for p in predictions if p.model_type == "optical"), None)
+        avg_thermal = next((p.avg_stress_probability for p in predictions if p.model_type == "thermal"), None)
+        
+        history.append({
+            "session_id": s.session_id,
+            "created_at": s.created_at,
+            "status": s.status,
+            "avg_optical_stress": avg_optical,
+            "avg_thermal_stress": avg_thermal,
+        })
+    return history
+
+def get_session_details(db: DBSession, session_id: str, person_id: str):
+    session = get_user_session_or_404(db, session_id, person_id)
+    
+    optical_data = []
+    thermal_data = []
+    
+    frames = db.query(Frame).filter(Frame.session_id == session_id).order_by(Frame.timestamp.asc()).all()
+    if frames:
+        frame_ids = [f.frame_id for f in frames]
+        predictions = db.query(Prediction).filter(Prediction.frame_id.in_(frame_ids)).all()
+        pred_map = {p.frame_id: p for p in predictions}
+        
+        for f in frames:
+            p = pred_map.get(f.frame_id)
+            if p:
+                point = {
+                    "timestamp": int(f.timestamp.timestamp() * 1000),
+                    "score": round(p.stress_probability * 100) if f.camera_type == "optical" else None,
+                    "prob": p.stress_probability if f.camera_type == "thermal" else None,
+                    "status": "FACE_DETECTED"
+                }
+                if f.camera_type == "optical":
+                    optical_data.append(point)
+                else:
+                    thermal_data.append(point)
+                    
+    messages = get_chat_history(db, session_id, person_id)
+    
+    return {
+        "session_id": session.session_id,
+        "created_at": session.created_at,
+        "optical": optical_data,
+        "thermal": thermal_data,
+        "messages": messages
+    }

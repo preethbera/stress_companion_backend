@@ -5,7 +5,8 @@ from app.db.session import get_db
 from app.db_models.domain import Person
 from app.schemas.session import (
     SessionCreateResponse, SessionUpdateRequest,
-    MessageCreateRequest, MessageResponse
+    MessageCreateRequest, MessageResponse,
+    SessionHistoryItem, SessionDetailResponse
 )
 from app.core.security import get_current_user
 from app.services import session_service  # Import the new service
@@ -59,3 +60,18 @@ def get_messages(
     db: DBSession = Depends(get_db)
 ):
     return session_service.get_chat_history(db, session_id, current_user.person_id)
+
+@router.get("/history", response_model=list[SessionHistoryItem])
+def get_user_history(
+    current_user: Person = Depends(get_current_user),
+    db: DBSession = Depends(get_db)
+):
+    return session_service.get_user_history(db, current_user.person_id)
+
+@router.get("/{session_id}/details", response_model=SessionDetailResponse)
+def get_session_details(
+    session_id: str,
+    current_user: Person = Depends(get_current_user),
+    db: DBSession = Depends(get_db)
+):
+    return session_service.get_session_details(db, session_id, current_user.person_id)
